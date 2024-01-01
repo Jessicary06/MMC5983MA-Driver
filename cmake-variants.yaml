@@ -1,0 +1,23 @@
+buildType:
+  default: Develop
+  choices:
+    Develop:
+      short: Develop
+      long: Emit debug information but also optimize
+      buildType: Develop
+    Debug:
+      short: Debug
+      long: Emit debug information and don't optimize
+      buildType: Debug
+    Release:
+      short: Release
+      long: Optimize generated code
+      buildType: Release
+board:
+  default: MMC5983MA
+  choices:
+    BMI323:
+      short: MMC5983MA
+      settings:
+        MBED_TARGET: NUCLEO_H723ZG
+        UPLOAD_METHOD: STM32CUBE
