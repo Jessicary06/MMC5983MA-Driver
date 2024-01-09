@@ -50,10 +50,10 @@ class MMC5983MA_Base
             Tout = 0x07,                // Temperature output
             Status = 0x08,              // Device status
             InternalControl_0 = 0x09,   // Control register 0
-            InternalControl_1 = 0x0A,   // Control register 1
-            InternalControl_2 = 0x0B,   // Control register 2
-            InternalControl_3 = 0x0C,   // Control register 3
-            ProductID_1 = 0x2F          // Product ID
+            InternalControl_1 = 0x0a,   // Control register 1
+            InternalControl_2 = 0x0b,   // Control register 2
+            InternalControl_3 = 0x0c,   // Control register 3
+            ProductID_1 = 0x2f          // Product ID
         };
 
     public:
@@ -70,7 +70,7 @@ class MMC5983MA_Base
          */
         virtual bool init() = 0;
 
-        virtual void readMagData(void *data) = 0;
+        virtual void readMagData() = 0;
 
         void setBitOutput(bool mode);
 
@@ -102,7 +102,7 @@ class MMC5983MA_I2C : public MMC5983MA_Base
          * 
          * @param data 
          */
-        void readMagData(void *data) override;
+        void readMagData() override;
 
     protected:
         /**
@@ -112,7 +112,7 @@ class MMC5983MA_I2C : public MMC5983MA_Base
          * @param data The data to read into, must be at least numToRead bytes
          * @param numToRead The number of bytes to read
          */
-        void readRegisterI2C(Register reg, void* data, uint8_t numToRead);
+        void readRegisterI2C(Register reg, char* data, uint8_t numOfRead);
 
         /**
          * @brief Write register
@@ -121,7 +121,7 @@ class MMC5983MA_I2C : public MMC5983MA_Base
          * @param data The data to write, must be at least numToWrite bytes
          * @param numToWrite The number of bytes to write
          */
-        void writeRegisterI2C(Register reg, void* data, uint8_t numToWrite);
+        void writeRegisterI2C(Register reg, char* data, uint8_t numOfWrite);
         
     private:
         I2C i2c;
@@ -153,7 +153,19 @@ class MMC5983MA_SPI : public MMC5983MA_Base
          * 
          * @param data 
          */
-        void readMagData(void *data) override;
+        void readMagData() override;
+
+        /**
+         * @brief Reads the status register
+         * 
+         */
+        void readStatusRegister();
+
+        /**
+         * @brief Reads the temperature register
+         * 
+         */
+        void readTemp();
 
     protected:
         /**
@@ -163,7 +175,7 @@ class MMC5983MA_SPI : public MMC5983MA_Base
          * @param data The data to read into, must be at least numToRead bytes
          * @param numToRead The number of bytes to read
          */
-        void readRegisterSPI(Register reg, void* data, uint8_t numToRead);
+        void readRegisterSPI(Register reg, char* data, uint8_t numOfRead);
 
         /**
          * @brief Function to write to a register via SPI
@@ -172,10 +184,15 @@ class MMC5983MA_SPI : public MMC5983MA_Base
          * @param data The data to write, must be at least numToWrite bytes
          * @param numToWrite The number of bytes to write 
          */
-        void writeRegisterSPI(Register reg, void* data, uint8_t numToWrite);
+        void writeRegisterSPI(Register reg, char* data, uint8_t numOfWrite);
 
     private:
         SPI spi;
+
+    private:
+        mag_data_16 mag16 = {0, 0, 0};
+        mag_data_18 mag18 = {0, 0, 0};
+        int8_t temp = 0;
 };
 
 #endif // MMC5983MA_H
