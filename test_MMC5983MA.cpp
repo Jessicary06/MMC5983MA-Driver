@@ -51,12 +51,16 @@ int main()
             }
             case 3:
             {
-                mag.readStatusRegister();
+                mag.readStatusSPI();
                 break;
             }
             case 4:
             {
-                mag.readTemp();
+                mag.readTempSPI();
+                break;
+            }
+            case 5:
+            {
                 break;
             }
             case 9: // Exit test suite

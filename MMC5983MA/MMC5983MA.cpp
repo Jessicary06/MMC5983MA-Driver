@@ -3,28 +3,14 @@
 
 /**
  * @brief Construct a new MMC5983MA Base::MMC5983MA Base object
- * 
  */
-MMC5983MA_Base::MMC5983MA_Base() : dataMode(0)
+MMC5983MA_Base::MMC5983MA_Base()
 {
-    // Note that we default to 16-bit output mode
-    // If you want 18-bit output mode, call setDataMode(1)
 }
 
-/**
- * @brief Mode 0 = 16-bit output | Mode 1 = 18-bit output
- * 
- * @param mode 
- */
-void MMC5983MA_Base::setBitOutput(bool mode)
+void MMC5983MA_Base::enableTemp(bool enable)
 {
-    if(mode == 0)
-        dataMode = 0;
-
-    else if(mode == 1)
-        dataMode = 1;
-
-    return;
+    tempEnable = enable;
 }
 
 /**
@@ -64,9 +50,9 @@ MMC5983MA_SPI::MMC5983MA_SPI(PinName mosi, PinName miso, PinName sclk, PinName s
      * 10 --> clock active high, sampling on neg edge
      * 11 --> clock active high, sampling on pos edge
      */
-    spi.format(8, 0);                  // Says, use 8 bits per transfer, mode 3
-    spi.set_default_write_value(0x1F); //
-    spi.frequency(1'000'000);          // SPI INTERFACE I/O CHARACTERISTICS section
+    spi.format(8, 0);                   // Datasheet says to use mode 3... but that doesn't work lol. Mode 0 is what worked!
+    spi.set_default_write_value(0x1F);  // Setting the default write value to 0x1F because it's a unused register value and a 0x0 dummy byte also writes to Xout0
+    spi.frequency(10'000'000);          // SPI INTERFACE I/O CHARACTERISTICS section
 }
 
 bool MMC5983MA_I2C::init()
@@ -104,10 +90,13 @@ bool MMC5983MA_SPI::init()
     char data[1];
     readRegisterSPI(Register::ProductID_1, data, 1);
 
+    printf("data: %x\n", data[0]);
     // If we read 0x30, we successfully init'd (properly read the product ID)
     // Note that 0x30 is both the prod. ID and i2c address
     if(data[0] == 0x30)
+    {
         return true;
+    }
 
     // Otherwise, we failed to init
     return false;
@@ -115,20 +104,33 @@ bool MMC5983MA_SPI::init()
 
 void MMC5983MA_SPI::readMagData()
 {
-    //TODO
-    char data[8];
+    // The Meas_M_Done bit should be checked before reading the output. (first bit)
+    // readStatusSPI();
+    
+    // When the new measurement command is occurred, the Meas_M_Done bit turns to 0
+    uint8_t toSend = 0b0000'0000;
+    writeRegisterSPI(Register::InternalControl_0, toSend | MASK_TM_M, 1);
+    
+    // The Meas_M_Done bit should be checked before reading the output. 
+    // When the new measurement command is occurred, this bit turns to 0. When
+    // the measurement is finished, this bit will remain 1 till next measurement.
+    char data[7];
     readRegisterSPI(Register::Xout0, data, 7);
+
+    // Writing “1” will let the device to read the OTP data again. This bit will be automatically reset to 0
+    // after the shadow registers for OTP are refreshed. (Pg. 15)
+    // writeRegisterSPI(Register::InternalControl_0, toSend | MASK_OTP_Read, 1);
 
     mag18.x = (data[0] << 10) | (data[1] << 2) | ((data[6] >> 6) & 0x3);
     mag18.y = (data[2] << 10) | (data[3] << 2) | ((data[6] >> 4) & 0x3);
     mag18.z = (data[4] << 10) | (data[5] << 2) | ((data[6] >> 2) & 0x3);
 
-    temp = data[7];
         
     printf("x: %ld\n", mag18.x);
     printf("y: %ld\n", mag18.y);
     printf("z: %ld\n", mag18.z);
-    printf("temp: %d\n", temp);
+
+    readInternalControl_0SPI();
 
     return;
 }
@@ -139,39 +141,35 @@ void MMC5983MA_SPI::readRegisterSPI(Register reg, char* data, uint8_t numOfRead)
     // You can declare it like this:
     // CacheAlignedBuffer<uint8_t, 2> response;
 
+    // Must select the SPI object to bring the CS low
     spi.select();
+    // bitwise OR with 0x80 because 8th bit being a 1 indiciates it being a read. whilst a 0 indicates it being a write
     spi.write(0x80 | static_cast<uint8_t>(reg));
-    // set data to spi.write(0x0) to read data
+    // set data to spi.write(0x1F) to read data
     for(int i=0; i<numOfRead; i++)
     {
+        // Writing 0x1F because we made that our default value!
         data[i] = spi.write(0x1F);
     }
+    // Deselecting the SPI object to bring the CS back high
     spi.deselect();
 
-    // printf("reg: %x\n", (0x80 | static_cast<uint8_t>(reg)));
-    // printf("data: %x\n", *reinterpret_cast<uint8_t*>(data));
-    // printf("whoami: %x\n", whoami);
-
-    // uint8_t toSend = 0x80 | static_cast<uint8_t>(reg);
-    // printf("toSend: %x\n", toSend);
-
-    // spi.select();
-    // int numBytesWritten = spi.write(reinterpret_cast<char*>(toSend), 1, data, numOfRead);
-    // spi.deselect();
-
-    // printf("data: %d\n", *reinterpret_cast<uint8_t*>(data));
-    // printf("numBytesWritten: %d\n", numBytesWritten);
-
     return;
 }
 
-void MMC5983MA_SPI::writeRegisterSPI(Register reg, char* data, uint8_t numOfWrite)
+void MMC5983MA_SPI::writeRegisterSPI(Register reg, uint8_t toSend, uint8_t numOfReads)
 {
-    //TODO
+    // bit 0: WRITE bit. The value is 0.
+    // bit 1: don’t care
+    // bit 2 -7: address AD(5:0). This is the address field of the indexed register.
+    spi.select();
+    spi.write(static_cast<uint8_t>(reg));
+    spi.write(toSend);
+    spi.deselect();
     return;
 }
 
-void MMC5983MA_SPI::readStatusRegister()
+void MMC5983MA_SPI::readStatusSPI()
 {
     char status[1];
     readRegisterSPI(Register::Status, status, 1);
@@ -180,11 +178,30 @@ void MMC5983MA_SPI::readStatusRegister()
     return;
 }
 
-void MMC5983MA_SPI::readTemp()
+
+
+void MMC5983MA_SPI::readTempSPI()
 {
+    // check value first
+    readStatusSPI();
+    uint8_t toSend = 0b0000'0000;
+    toSend = toSend | MASK_TM_T;
+    printf("toSend: %x \n", toSend);
+    writeRegisterSPI(Register::InternalControl_0, toSend, 1);
+
+    
     char temp[1];
     readRegisterSPI(Register::Tout, temp, 1);
 
     printf("temp: %x\n", *reinterpret_cast<uint8_t*>(temp));
-    return;
+
+    readInternalControl_0SPI();
+return;
+}
+
+void MMC5983MA_SPI::readInternalControl_0SPI()
+{
+    char internal[1];
+    readRegisterSPI(Register::InternalControl_0, internal, 1);
+    printf("internal: %x\n", internal[0]);
 }

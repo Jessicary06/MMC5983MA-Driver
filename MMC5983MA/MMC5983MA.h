@@ -38,6 +38,7 @@ struct mag_data_18
 class MMC5983MA_Base
 {
     public:
+        // The values in here are implicitly const!
         enum class Register : uint8_t
         {
             Xout0 = 0x00,               // Xout [17:10]
@@ -56,10 +57,41 @@ class MMC5983MA_Base
             ProductID_1 = 0x2f          // Product ID
         };
 
+        /**
+         * @brief These masks are responsible for configuring the internalControl0 Register in the IC
+         * 
+         * Bit Name       | Description
+         * ---------------|------------------------------------------------------------------------------------
+         * TM_M           = Take magnetic field measurement, set ‘1’ will initiate measurement. 
+         *                  This bit will be automatically reset to 0 at the end of each measurement.
+         * TM_T           = Take Temperature measurement, set ‘1’ will initiate measurement. 
+         *                  This bit will be automatically reset to 0 at the end of each measurement. 
+         *                  This bit and TM_M cannot be high at the same time.
+         * INT_meas_done  = Writing “1” will enable the interrupt for completed measurements. 
+         *                  Once a measurement is finished, either magnetic field or temperature, 
+         *                  an interrupt will be sent to the host.
+         * Set            = Writing “1” will cause the chip to do the Set operation, 
+         *                  which will allow large set current to flow through the sensor coils for 500ns. 
+         *                  This bit is self-cleared at the end of Set operation.
+         * Reset          = Writing “1” will cause the chip to do the Reset operation, 
+         *                  which will allow large reset current to flow through the sensor coils for 500ns. 
+         *                  This bit is self-cleared at the end of Reset operation.
+         * Auto_SR_en     = Writing “1” will enable the feature of automatic set/reset.
+         * OTP Read       = Writing “1” will let the device read the OTP data again. 
+         *                  This bit will be automatically reset to 0 after the shadow registers for OTP are refreshed.
+         */
+
+        const uint8_t MASK_TM_M                = 0b0000'0001;
+        const uint8_t MASK_TM_T                = 0b0000'0010;
+        const uint8_t MASK_INT_meas_done_en    = 0b0000'0100;
+        const uint8_t MASK_Set                 = 0b0000'1000;
+        const uint8_t MASK_Reset               = 0b0001'0000;
+        const uint8_t MASK_Auto_SR_en          = 0b0010'0000;
+        const uint8_t MASK_OTP_Read            = 0b0100'0000;
+
     public:
         /**
          * @brief Construct a new MMC5983MA Base object
-         * 
          */
         MMC5983MA_Base();
 
@@ -72,10 +104,13 @@ class MMC5983MA_Base
 
         virtual void readMagData() = 0;
 
-        void setBitOutput(bool mode);
+        void enableTemp(bool enable);
 
-    private:
-        uint8_t dataMode;
+    protected:
+        bool tempEnable = 0;
+        mag_data_16 mag16 = {0, 0, 0};
+        mag_data_18 mag18 = {0, 0, 0};
+        uint8_t tempReading = 0;
 };
 
 class MMC5983MA_I2C : public MMC5983MA_Base
@@ -157,15 +192,19 @@ class MMC5983MA_SPI : public MMC5983MA_Base
 
         /**
          * @brief Reads the status register
-         * 
          */
-        void readStatusRegister();
+        void readStatusSPI();
 
         /**
          * @brief Reads the temperature register
+         */
+        void readTempSPI();
+
+        /**
+         * @brief Read the internal control 0 register
          * 
          */
-        void readTemp();
+        void readInternalControl_0SPI();
 
     protected:
         /**
@@ -184,15 +223,10 @@ class MMC5983MA_SPI : public MMC5983MA_Base
          * @param data The data to write, must be at least numToWrite bytes
          * @param numToWrite The number of bytes to write 
          */
-        void writeRegisterSPI(Register reg, char* data, uint8_t numOfWrite);
+        void writeRegisterSPI(Register reg, uint8_t toSend, uint8_t numOfReads);
 
     private:
         SPI spi;
-
-    private:
-        mag_data_16 mag16 = {0, 0, 0};
-        mag_data_18 mag18 = {0, 0, 0};
-        int8_t temp = 0;
 };
 
 #endif // MMC5983MA_H
