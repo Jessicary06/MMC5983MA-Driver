@@ -30,9 +30,9 @@ struct mag_data_16
  */
 struct mag_data_18
 {
-    int32_t x;
-    int32_t y;
-    int32_t z;
+    float x;
+    float y;
+    float z;
 };
 
 class MMC5983MA_Base
@@ -109,7 +109,7 @@ class MMC5983MA_Base
     protected:
         bool tempEnable = 0;
         mag_data_16 mag16 = {0, 0, 0};
-        mag_data_18 mag18 = {0, 0, 0};
+        mag_data_18 mag18 = {0.0f, 0.0f, 0.0f};
         uint8_t tempReading = 0;
 };
 
@@ -205,6 +205,12 @@ class MMC5983MA_SPI : public MMC5983MA_Base
          * 
          */
         void readInternalControl_0SPI();
+
+        /**
+         * @brief MMC5983 integrated SET/RESET function to restore/set the 
+         * sensor characteristics
+         */
+        void SET_RESET();
 
     protected:
         /**

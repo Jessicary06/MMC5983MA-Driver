@@ -121,14 +121,24 @@ void MMC5983MA_SPI::readMagData()
     // after the shadow registers for OTP are refreshed. (Pg. 15)
     // writeRegisterSPI(Register::InternalControl_0, toSend | MASK_OTP_Read, 1);
 
-    mag18.x = (data[0] << 10) | (data[1] << 2) | ((data[6] >> 6) & 0x3);
-    mag18.y = (data[2] << 10) | (data[3] << 2) | ((data[6] >> 4) & 0x3);
-    mag18.z = (data[4] << 10) | (data[5] << 2) | ((data[6] >> 2) & 0x3);
+    int32_t temp1 = (data[0] << 10) | (data[1] << 2) | ((data[6] >> 6) & 0x3);
+    int32_t temp2 = (data[2] << 10) | (data[3] << 2) | ((data[6] >> 4) & 0x3);
+    int32_t temp3 = (data[4] << 10) | (data[5] << 2) | ((data[6] >> 2) & 0x3);
 
-        
-    printf("x: %ld\n", mag18.x);
-    printf("y: %ld\n", mag18.y);
-    printf("z: %ld\n", mag18.z);
+    printf("test 1 x: %ld\n", temp1);
+    printf("test 2 x: %lf\n", temp1);
+    printf("test 3 x: %lf\n", (float)(temp1));
+
+    mag18.x = (float)temp1 * 0.0625f;
+    mag18.y = (float)temp2 * 0.0625f;
+    mag18.z = (float)temp3 * 0.0625f;
+
+    float magnitude = sqrt(pow(mag18.x, 2)+pow(mag18.y, 2)+pow(mag18.z, 2));  
+
+    printf("x: %f\n", mag18.x);
+    printf("y: %f\n", mag18.y);
+    printf("z: %f\n", mag18.z);
+    printf("mag: %f\n", magnitude);
 
     readInternalControl_0SPI();
 
@@ -204,4 +214,22 @@ void MMC5983MA_SPI::readInternalControl_0SPI()
     char internal[1];
     readRegisterSPI(Register::InternalControl_0, internal, 1);
     printf("internal: %x\n", internal[0]);
+}
+
+void MMC5983MA_SPI::SET_RESET() 
+{
+    // set
+    uint8_t toSend = 0b0000'0000;
+    toSend = toSend | MASK_Set;
+    writeRegisterSPI(Register::InternalControl_0, toSend, 1);
+    // reset
+    toSend = 0b0000'0000;
+    toSend = toSend | MASK_Reset;
+    writeRegisterSPI(Register::InternalControl_0, toSend, 1);
+
+    // Writing “1” will let the device to read the OTP data again. This bit will be automatically reset to 0
+    // after the shadow registers for OTP are refreshed. (Pg. 15)
+    // writeRegisterSPI(Register::InternalControl_0, toSend | MASK_OTP_Read, 1);
+
+    printf("MMC5983 Successfully Reset.\n");
 }

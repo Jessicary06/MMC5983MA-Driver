@@ -19,6 +19,7 @@ int main()
         printf("2.  Test MMC5983MA readMagData\n");
         printf("3.  Test MMC5983MA readStatusRegister\n");
         printf("4.  Test MMC5983MA readTemp\n");
+        printf("5.  Test MMC5983 SET/REST\n");
         printf("9.  Exit Test Suite\n");
 
         // scanf("%d", &test);
@@ -61,6 +62,7 @@ int main()
             }
             case 5:
             {
+                mag.SET_RESET();
                 break;
             }
             case 9: // Exit test suite
