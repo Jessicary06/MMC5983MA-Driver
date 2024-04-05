@@ -125,9 +125,8 @@ void MMC5983MA_SPI::readMagData()
     int32_t temp2 = (data[2] << 10) | (data[3] << 2) | ((data[6] >> 4) & 0x3);
     int32_t temp3 = (data[4] << 10) | (data[5] << 2) | ((data[6] >> 2) & 0x3);
 
-    printf("test 1 x: %ld\n", temp1);
-    printf("test 2 x: %lf\n", temp1);
-    printf("test 3 x: %lf\n", (float)(temp1));
+    // printf("test 1 x: %ld\n", temp1);
+    // printf("test 2 x: %f\n", (float)temp1);
 
     mag18.x = (float)temp1 * 0.0625f;
     mag18.y = (float)temp2 * 0.0625f;
