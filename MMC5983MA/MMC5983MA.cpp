@@ -1,6 +1,8 @@
 #include "MMC5983MA.h"
 #include <cinttypes>
 
+#define MAG_DEBUG 0
+
 /**
  * @brief Construct a new MMC5983MA Base::MMC5983MA Base object
  */
@@ -52,7 +54,7 @@ MMC5983MA_SPI::MMC5983MA_SPI(PinName mosi, PinName miso, PinName sclk, PinName s
      */
     spi.format(8, 0);                   // Datasheet says to use mode 3... but that doesn't work lol. Mode 0 is what worked!
     spi.set_default_write_value(0x1F);  // Setting the default write value to 0x1F because it's a unused register value and a 0x0 dummy byte also writes to Xout0
-    spi.frequency(10'000'000);          // SPI INTERFACE I/O CHARACTERISTICS section
+    spi.frequency(1'000'000);          // SPI INTERFACE I/O CHARACTERISTICS section
 }
 
 bool MMC5983MA_I2C::init()
@@ -105,13 +107,14 @@ bool MMC5983MA_SPI::init()
 void MMC5983MA_SPI::readMagData()
 {
     // The Meas_M_Done bit should be checked before reading the output. (first bit)
-    // readStatusSPI();
+    readStatusSPI();
     
     // When the new measurement command is occurred, the Meas_M_Done bit turns to 0
     uint8_t toSend = 0b0000'0000;
     writeRegisterSPI(Register::InternalControl_0, toSend | MASK_TM_M, 1);
     
     // The Meas_M_Done bit should be checked before reading the output. 
+    readStatusSPI();
     // When the new measurement command is occurred, this bit turns to 0. When
     // the measurement is finished, this bit will remain 1 till next measurement.
     char data[7];
@@ -125,19 +128,21 @@ void MMC5983MA_SPI::readMagData()
     int32_t temp2 = (data[2] << 10) | (data[3] << 2) | ((data[6] >> 4) & 0x3);
     int32_t temp3 = (data[4] << 10) | (data[5] << 2) | ((data[6] >> 2) & 0x3);
 
-    // printf("test 1 x: %ld\n", temp1);
-    // printf("test 2 x: %f\n", (float)temp1);
+    if(MAG_DEBUG) 
+    {
+        printf("test 1 x: %ld\n", temp1);
+    }
 
     mag18.x = (float)temp1 * 0.0625f;
     mag18.y = (float)temp2 * 0.0625f;
     mag18.z = (float)temp3 * 0.0625f;
 
-    float magnitude = sqrt(pow(mag18.x, 2)+pow(mag18.y, 2)+pow(mag18.z, 2));  
-
-    printf("x: %f\n", mag18.x);
-    printf("y: %f\n", mag18.y);
-    printf("z: %f\n", mag18.z);
-    printf("mag: %f\n", magnitude);
+    if(MAG_DEBUG)
+    {
+        printf("x: %f\n", mag18.x);
+        printf("y: %f\n", mag18.y);
+        printf("z: %f\n", mag18.z);
+    }
 
     readInternalControl_0SPI();
 
@@ -183,7 +188,10 @@ void MMC5983MA_SPI::readStatusSPI()
     char status[1];
     readRegisterSPI(Register::Status, status, 1);
 
-    printf("status: %x\n", *reinterpret_cast<uint8_t*>(status));
+    if(MAG_DEBUG)
+    {
+        printf("status: %x\n", *reinterpret_cast<uint8_t*>(status));
+    }
     return;
 }
 
@@ -195,14 +203,21 @@ void MMC5983MA_SPI::readTempSPI()
     readStatusSPI();
     uint8_t toSend = 0b0000'0000;
     toSend = toSend | MASK_TM_T;
-    printf("toSend: %x \n", toSend);
+
+    if(MAG_DEBUG)
+    {
+        printf("toSend: %x \n", toSend);
+    }
     writeRegisterSPI(Register::InternalControl_0, toSend, 1);
 
     
     char temp[1];
     readRegisterSPI(Register::Tout, temp, 1);
 
-    printf("temp: %x\n", *reinterpret_cast<uint8_t*>(temp));
+    if(MAG_DEBUG)
+    {
+        printf("temp: %x\n", *reinterpret_cast<uint8_t*>(temp));
+    }
 
     readInternalControl_0SPI();
 return;
@@ -212,6 +227,7 @@ void MMC5983MA_SPI::readInternalControl_0SPI()
 {
     char internal[1];
     readRegisterSPI(Register::InternalControl_0, internal, 1);
+
     printf("internal: %x\n", internal[0]);
 }
 

@@ -3,6 +3,7 @@
         "*": {
             "platform.stdio-baud-rate": 115200,
             "platform.stdio-buffered-serial": 1,
+            "target.c_lib": "std",
             "target.printf_lib": "std"           
         }
         
