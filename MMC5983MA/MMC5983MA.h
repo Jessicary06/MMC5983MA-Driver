@@ -192,8 +192,10 @@ class MMC5983MA_SPI : public MMC5983MA_Base
 
         /**
          * @brief Reads the status register
+         * @param meas_type type of measurement being status checked
+         * 0 for Meas_M_Done (mag) and 1 for Meas_T_Done (temp)
          */
-        void readStatusSPI();
+        void readStatusSPI(uint8_t meas_type);
 
         /**
          * @brief Reads the temperature register

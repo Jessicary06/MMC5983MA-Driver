@@ -107,14 +107,14 @@ bool MMC5983MA_SPI::init()
 void MMC5983MA_SPI::readMagData()
 {
     // The Meas_M_Done bit should be checked before reading the output. (first bit)
-    readStatusSPI();
+    // readStatusSPI(0);
     
     // When the new measurement command is occurred, the Meas_M_Done bit turns to 0
     uint8_t toSend = 0b0000'0000;
     writeRegisterSPI(Register::InternalControl_0, toSend | MASK_TM_M, 1);
     
     // The Meas_M_Done bit should be checked before reading the output. 
-    readStatusSPI();
+    readStatusSPI(0);
     // When the new measurement command is occurred, this bit turns to 0. When
     // the measurement is finished, this bit will remain 1 till next measurement.
     char data[7];
@@ -183,10 +183,13 @@ void MMC5983MA_SPI::writeRegisterSPI(Register reg, uint8_t toSend, uint8_t numOf
     return;
 }
 
-void MMC5983MA_SPI::readStatusSPI()
+void MMC5983MA_SPI::readStatusSPI(uint8_t meas_type)
 {
     char status[1];
-    readRegisterSPI(Register::Status, status, 1);
+
+    do {
+        readRegisterSPI(Register::Status, status, 1);
+    } while ((status[0] & (1 << meas_type)) == 0);
 
     if(MAG_DEBUG)
     {
@@ -200,7 +203,7 @@ void MMC5983MA_SPI::readStatusSPI()
 void MMC5983MA_SPI::readTempSPI()
 {
     // check value first
-    readStatusSPI();
+    readStatusSPI(1);
     uint8_t toSend = 0b0000'0000;
     toSend = toSend | MASK_TM_T;
 
